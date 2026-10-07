@@ -1,9 +1,17 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
+const FALLBACK_MODELS = [
+  'gemini-3.5-flash-lite',
+  'gemini-flash-latest',
+  'gemini-3.1-flash-lite',
+  'gemini-3.8-flash',
+  'gemini-3.5-flash',
+  'gemini-flash-lite-latest'
+];
+
 class AIService {
   constructor() {
     this.genAI = null;
-    this.model = null;
   }
 
   initialize() {
@@ -12,21 +20,42 @@ class AIService {
       throw new Error('GEMINI_API_KEY is not set in environment variables. Get a free key at https://aistudio.google.com/apikey');
     }
     this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAI.getGenerativeModel({ 
-      model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
-    });
   }
 
-  getModel() {
-    if (!this.model) {
+  getGenAI() {
+    if (!this.genAI) {
       this.initialize();
     }
-    return this.model;
+    return this.genAI;
+  }
+
+  getCandidateModels() {
+    const configured = process.env.GEMINI_MODEL;
+    const candidates = configured ? [configured, ...FALLBACK_MODELS] : FALLBACK_MODELS;
+    return [...new Set(candidates)];
+  }
+
+  async generateWithFallback(contents) {
+    const genAI = this.getGenAI();
+    const candidates = this.getCandidateModels();
+    let lastError = null;
+
+    for (const modelName of candidates) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent({ contents });
+        const response = result.response;
+        return response.text();
+      } catch (err) {
+        console.warn(`[TradeX AI] Model '${modelName}' failed: ${err.message}. Trying next fallback...`);
+        lastError = err;
+      }
+    }
+
+    throw lastError || new Error('All AI models failed to generate content.');
   }
 
   async analyzeImage(imageBuffer, mimeType, systemPrompt, userMessage, conversationHistory = []) {
-    const model = this.getModel();
-    
     const imagePart = {
       inlineData: {
         data: imageBuffer.toString('base64'),
@@ -35,7 +64,7 @@ class AIService {
     };
 
     const contents = [];
-    
+
     // Add conversation history
     if (conversationHistory && conversationHistory.length > 0) {
       for (const msg of conversationHistory) {
@@ -52,22 +81,18 @@ class AIService {
       ? `${systemPrompt}\n\nUser's additional context: ${userMessage}\n\nAnalyze this trading chart.`
       : `${systemPrompt}\n\nAnalyze this trading chart.`;
     parts.push({ text: promptText });
-    
+
     contents.push({
       role: 'user',
       parts: parts,
     });
 
-    const result = await model.generateContent({ contents });
-    const response = result.response;
-    return response.text();
+    return await this.generateWithFallback(contents);
   }
 
   async chat(systemPrompt, message, conversationHistory = []) {
-    const model = this.getModel();
-    
     const contents = [];
-    
+
     // Add conversation history
     if (conversationHistory && conversationHistory.length > 0) {
       for (const msg of conversationHistory) {
@@ -84,9 +109,7 @@ class AIService {
       parts: [{ text: `${systemPrompt}\n\n${message}` }],
     });
 
-    const result = await model.generateContent({ contents });
-    const response = result.response;
-    return response.text();
+    return await this.generateWithFallback(contents);
   }
 }
 
