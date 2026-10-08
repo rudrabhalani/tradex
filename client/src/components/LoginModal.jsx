@@ -7,6 +7,17 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
 
   if (!isOpen) return null;
 
+  const getDeviceString = () => {
+    if (typeof navigator === 'undefined') return 'Web Browser';
+    const ua = navigator.userAgent;
+    if (/android/i.test(ua)) return 'Android Device';
+    if (/iPad|iPhone|iPod/.test(ua)) return 'Apple iOS Device';
+    if (/Windows/i.test(ua)) return 'Windows PC';
+    if (/Mac/i.test(ua)) return 'Mac Desktop';
+    if (/Linux/i.test(ua)) return 'Linux';
+    return 'Web Browser';
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -19,6 +30,8 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
       name: name.trim(),
       email: email.trim() || `${name.trim().toLowerCase().replace(/\s+/g, '')}@tradex.client`,
       role: 'Registered Trader',
+      userType: 'registered',
+      device: getDeviceString(),
       joinedAt: new Date().toISOString(),
     };
 
@@ -29,9 +42,11 @@ export default function LoginModal({ isOpen, onClose, onLogin }) {
     const guestNumber = Math.floor(1000 + Math.random() * 9000);
     const guestUser = {
       id: 'guest_' + Date.now().toString(36),
-      name: `Trader_${guestNumber}`,
-      email: `guest_${guestNumber}@tradex.client`,
+      name: `Guest_${guestNumber}`,
+      email: `guest_${guestNumber}@session.local`,
       role: 'Guest Trader',
+      userType: 'guest',
+      device: getDeviceString(),
       joinedAt: new Date().toISOString(),
     };
 

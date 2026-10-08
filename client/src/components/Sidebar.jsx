@@ -137,20 +137,7 @@ export default function Sidebar({
             </button>
           )}
 
-          {/* Owner Portal Link */}
-          {onOpenOwnerPortal && (
-            <button
-              onClick={onOpenOwnerPortal}
-              className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-xs font-bold text-amber-500 dark:text-amber-400 transition-colors shadow-sm"
-              title="Access Owner Dashboard"
-            >
-              <span className="flex items-center gap-1.5 text-[11px]">
-                <span>👑</span>
-                <span>Owner Portal</span>
-              </span>
-              <span className="text-[10px] font-bold">Manage →</span>
-            </button>
-          )}
+
 
           {/* Founder Acknowledgment */}
           <div className="text-center pt-1 border-t border-gray-200/50 dark:border-zinc-800/50">

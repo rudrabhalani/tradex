@@ -33,10 +33,12 @@ let state = {
       name: 'BHALANI RUDRA SANDIPBHAI',
       email: 'founder@tradex.ai',
       role: 'Founder & Owner',
+      userType: 'registered',
+      device: 'Owner Workstation',
       joinedAt: new Date('2026-10-01T00:00:00Z').toISOString(),
       lastActive: new Date().toISOString(),
-      queryCount: 12,
-      chartCount: 8,
+      queryCount: 15,
+      chartCount: 10,
     }
   ],
   activities: [
@@ -81,24 +83,35 @@ loadState();
 const OWNER_PIN = process.env.OWNER_PIN || 'rudra2026';
 
 const analyticsService = {
-  trackUser({ id, name, email, role = 'client' }) {
+  trackUser({ id, name, email, role = 'client', device = 'Web Browser' }) {
     if (!id) id = 'usr_' + Math.random().toString(36).substr(2, 9);
-    const existing = state.users.find(u => u.id === id || (email && u.email && u.email.toLowerCase() === email.toLowerCase()));
+    
+    const isGuest = role === 'Guest Trader' || role === 'guest' || (name && name.startsWith('Trader_')) || (id && id.startsWith('guest_'));
+    const userType = isGuest ? 'guest' : 'registered';
+
+    const existing = state.users.find(u => u.id === id || (email && u.email && u.email.toLowerCase() === email.toLowerCase() && !email.includes('@tradex.client')));
 
     const now = new Date().toISOString();
     if (existing) {
       existing.lastActive = now;
-      if (name && (!existing.name || existing.name.startsWith('Guest_'))) existing.name = name;
-      if (email && !existing.email) existing.email = email;
+      if (device) existing.device = device;
+      if (name && (!existing.name || existing.name.startsWith('Trader_'))) existing.name = name;
+      if (email && (!existing.email || existing.email.includes('@tradex.client'))) existing.email = email;
+      if (!isGuest && existing.userType === 'guest') {
+        existing.userType = 'registered';
+        existing.role = 'Registered Trader';
+      }
       saveState();
       return existing;
     }
 
     const newUser = {
       id,
-      name: name || `Trader_${Math.floor(1000 + Math.random() * 9000)}`,
-      email: email || '',
-      role,
+      name: name || (isGuest ? `Guest_${Math.floor(1000 + Math.random() * 9000)}` : 'Trader'),
+      email: email || (isGuest ? 'guest@session.local' : ''),
+      role: isGuest ? 'Guest Trader' : 'Registered Trader',
+      userType,
+      device: device || 'Web Browser',
       joinedAt: now,
       lastActive: now,
       queryCount: 0,
@@ -108,12 +121,12 @@ const analyticsService = {
     state.users.unshift(newUser);
     state.metrics.totalUsers = state.users.length;
 
-    // Record welcome activity
+    // Record activity
     this.recordActivity({
       userId: newUser.id,
       userName: newUser.name,
-      action: 'USER_JOINED',
-      details: `New client entered TradeX AI (${newUser.name})`
+      action: isGuest ? 'GUEST_JOINED' : 'USER_REGISTERED',
+      details: isGuest ? `Guest session started (${newUser.name})` : `New registered trader logged in (${newUser.name})`
     });
 
     saveState();
@@ -164,13 +177,21 @@ const analyticsService = {
     const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
     const activeRecent = state.users.filter(u => new Date(u.lastActive).getTime() > oneDayAgo).length;
 
+    const registeredCount = state.users.filter(u => u.userType === 'registered' || u.role?.includes('Registered') || u.role?.includes('Founder')).length;
+    const guestCount = state.users.filter(u => u.userType === 'guest' || u.role?.includes('Guest')).length;
+
     return {
       metrics: {
-        ...state.metrics,
+        totalUsers: state.users.length,
+        registeredUsers: registeredCount,
+        guestUsers: guestCount,
         activeLast24h: activeRecent || 1,
+        totalQueries: state.metrics.totalQueries,
+        totalCharts: state.metrics.totalCharts,
+        totalChats: state.metrics.totalChats,
       },
       users: state.users,
-      recentActivities: state.activities.slice(0, 50),
+      recentActivities: state.activities.slice(0, 60),
       owner: {
         name: 'BHALANI RUDRA SANDIPBHAI',
         title: 'Founder & Owner (17-year-old Entrepreneur)',

@@ -7,7 +7,6 @@ import OwnerDashboard from './components/OwnerDashboard';
 import { trackUser } from './services/api';
 
 const STORAGE_KEY_CONVS = 'tradex_conversations_v3';
-const STORAGE_KEY_ACTIVE = 'tradex_active_id_v3';
 const STORAGE_KEY_THEME = 'tradex_theme';
 const STORAGE_KEY_USER = 'tradex_user';
 
@@ -43,35 +42,36 @@ function App() {
     return !localStorage.getItem(STORAGE_KEY_USER);
   });
 
-  // Conversation history persistence in localStorage
+  // Generate unique initial fresh conversation id for this session
+  const initialFreshId = useRef(Date.now());
+
+  // Conversation history:
+  // When user opens the AI another time, start with a clear fresh conversation in the main view
+  // while keeping all past conversations safely saved in the sidebar!
   const [conversations, setConversations] = useState(() => {
+    const freshId = initialFreshId.current;
+    const freshConv = { id: freshId, title: 'New Analysis', messages: [] };
     try {
       const saved = localStorage.getItem(STORAGE_KEY_CONVS);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          // Keep all non-empty saved past conversations in history
+          const savedPast = parsed.filter(c => c.messages && c.messages.length > 0);
+          return [freshConv, ...savedPast];
         }
       }
     } catch (e) {
       console.error('Failed to load conversations from localStorage:', e);
     }
-    return [{ id: 1, title: 'New Analysis', messages: [] }];
+    return [freshConv];
   });
 
-  const [activeConversationId, setActiveConversationId] = useState(() => {
-    try {
-      const savedId = localStorage.getItem(STORAGE_KEY_ACTIVE);
-      if (savedId) {
-        return Number(savedId);
-      }
-    } catch (e) {}
-    return 1;
-  });
+  // Active conversation is always the fresh clean conversation on start
+  const [activeConversationId, setActiveConversationId] = useState(() => initialFreshId.current);
 
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const nextConvId = useRef(Date.now());
 
   // Listen to browser navigation back / forward buttons
   useEffect(() => {
@@ -97,19 +97,15 @@ function App() {
     localStorage.setItem(STORAGE_KEY_THEME, theme);
   }, [theme]);
 
-  // Persist conversations to localStorage
+  // Persist only non-empty conversations to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY_CONVS, JSON.stringify(conversations));
+      const toSave = conversations.filter(c => c.messages && c.messages.length > 0);
+      localStorage.setItem(STORAGE_KEY_CONVS, JSON.stringify(toSave));
     } catch (e) {
-      console.warn('Could not persist conversations to localStorage (quota or size limit):', e);
+      console.warn('Could not persist conversations to localStorage:', e);
     }
   }, [conversations]);
-
-  // Persist active ID
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_ACTIVE, String(activeConversationId));
-  }, [activeConversationId]);
 
   // Track active user in backend analytics
   useEffect(() => {
@@ -129,7 +125,7 @@ function App() {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  const activeConversation = conversations.find(c => c.id === activeConversationId) || conversations[0] || { id: 1, title: 'New Analysis', messages: [] };
+  const activeConversation = conversations.find(c => c.id === activeConversationId) || conversations[0] || { id: initialFreshId.current, title: 'New Analysis', messages: [] };
 
   const addMessage = useCallback((role, content, imageUrl = null) => {
     setConversations(prev => prev.map(conv => {
@@ -138,7 +134,7 @@ function App() {
         // Update title from first user message
         let title = conv.title;
         if (conv.messages.length === 0 && role === 'user') {
-          title = content ? content.substring(0, 28) + (content.length > 28 ? '...' : '') : 'Chart Analysis';
+          title = content ? content.substring(0, 28) + (content.length > 28 ? '...' : '') : 'Analysis';
         }
         return { ...conv, messages: newMessages, title };
       }
@@ -149,29 +145,34 @@ function App() {
   const getConversationHistory = useCallback(() => {
     return activeConversation.messages.map(msg => ({
       role: msg.role,
-      content: msg.content || (msg.imageUrl ? '[Chart image uploaded]' : ''),
+      content: msg.content || (msg.imageUrl ? '[Chart/Photo uploaded]' : ''),
     }));
   }, [activeConversation]);
 
   const handleNewConversation = useCallback(() => {
-    const id = nextConvId.current++;
+    // If the active conversation is already clean and empty, keep using it
+    if (activeConversation.messages.length === 0) {
+      setSidebarOpen(false);
+      return;
+    }
+    const id = Date.now();
     setConversations(prev => [{ id, title: 'New Analysis', messages: [] }, ...prev]);
     setActiveConversationId(id);
     setSidebarOpen(false);
-  }, []);
+  }, [activeConversation]);
 
   const handleDeleteConversation = useCallback((id) => {
     setConversations(prev => {
       const filtered = prev.filter(c => c.id !== id);
       if (filtered.length === 0) {
-        const newId = nextConvId.current++;
+        const newId = Date.now();
         return [{ id: newId, title: 'New Analysis', messages: [] }];
       }
       return filtered;
     });
     if (activeConversationId === id) {
       setConversations(prev => {
-        setActiveConversationId(prev[0]?.id || 1);
+        setActiveConversationId(prev[0]?.id || Date.now());
         return prev;
       });
     }
@@ -198,7 +199,7 @@ function App() {
         onLogin={handleUserLogin}
       />
 
-      {/* Sidebar */}
+      {/* Sidebar with saved side conversations */}
       <Sidebar
         conversations={conversations}
         activeId={activeConversationId}
@@ -211,10 +212,6 @@ function App() {
         onToggleTheme={toggleTheme}
         user={user}
         onOpenLogin={() => setIsLoginModalOpen(true)}
-        onOpenOwnerPortal={() => {
-          setCurrentView('owner');
-          window.history.pushState({}, '', '/owner');
-        }}
       />
 
       {/* Main Chat View Area */}
@@ -245,17 +242,17 @@ function App() {
             </div>
           </div>
 
-          {/* Right Header Controls (New Chat + Theme Toggle + Owner Portal Link) */}
+          {/* Right Header Controls (New Chat + Theme Toggle) */}
           <div className="flex items-center gap-2">
             <button
               onClick={handleNewConversation}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-800 text-xs font-semibold text-gray-700 dark:text-zinc-300 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-800 text-xs font-semibold text-gray-700 dark:text-zinc-300 transition-colors"
               title="Start a new chat"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              <span>New Analysis</span>
+              <span className="hidden sm:inline">New Analysis</span>
             </button>
 
             {/* Dark / Light Theme Toggle */}
@@ -265,19 +262,6 @@ function App() {
               title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
             >
               {theme === 'dark' ? '☀️' : '🌙'}
-            </button>
-
-            {/* Direct Owner Portal Access */}
-            <button
-              onClick={() => {
-                setCurrentView('owner');
-                window.history.pushState({}, '', '/owner');
-              }}
-              className="px-2.5 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-[11px] font-bold text-amber-600 dark:text-amber-400 transition-colors hidden sm:flex items-center gap-1"
-              title="Owner Command Center"
-            >
-              <span>👑</span>
-              <span>Owner</span>
             </button>
           </div>
         </header>

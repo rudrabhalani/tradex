@@ -78,8 +78,8 @@ class AIService {
     // Add current message with image
     const parts = [imagePart];
     const promptText = userMessage 
-      ? `${systemPrompt}\n\nUser's additional context: ${userMessage}\n\nAnalyze this trading chart.`
-      : `${systemPrompt}\n\nAnalyze this trading chart.`;
+      ? `${systemPrompt}\n\nUser question / instruction: ${userMessage}`
+      : `${systemPrompt}\n\nAnalyze and examine this image in full detail.`;
     parts.push({ text: promptText });
 
     contents.push({
