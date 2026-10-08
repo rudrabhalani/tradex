@@ -83,13 +83,24 @@ loadState();
 const OWNER_PIN = process.env.OWNER_PIN || 'rudra2026';
 
 const analyticsService = {
-  trackUser({ id, name, email, role = 'client', device = 'Web Browser' }) {
+  trackUser({ id, name, email, role = 'client', userType: explicitType, device = 'Web Browser' }) {
     if (!id) id = 'usr_' + Math.random().toString(36).substr(2, 9);
     
-    const isGuest = role === 'Guest Trader' || role === 'guest' || (name && name.startsWith('Trader_')) || (id && id.startsWith('guest_'));
+    let isGuest = false;
+    if (explicitType === 'guest') {
+      isGuest = true;
+    } else if (explicitType === 'registered') {
+      isGuest = false;
+    } else if (role === 'Guest Trader' || role === 'guest') {
+      isGuest = true;
+    } else if (role?.includes('Registered') || (email && !email.includes('@session.local'))) {
+      isGuest = false;
+    } else if (name?.startsWith('Guest_') || id?.startsWith('guest_')) {
+      isGuest = true;
+    }
     const userType = isGuest ? 'guest' : 'registered';
 
-    const existing = state.users.find(u => u.id === id || (email && u.email && u.email.toLowerCase() === email.toLowerCase() && !email.includes('@tradex.client')));
+    const existing = state.users.find(u => u.id === id || (email && u.email && u.email.toLowerCase() === email.toLowerCase() && !email.includes('@session.local')));
 
     const now = new Date().toISOString();
     if (existing) {
