@@ -153,7 +153,7 @@ export default function InputArea({ conversationHistory, isLoading, setIsLoading
             value={text}
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
-            placeholder={file ? 'Add context (optional)...' : 'Upload a chart or ask a question...'}
+            placeholder={file ? 'Add context (e.g. timeframe, symbol, risk preference)...' : 'Upload a chart, or ask any question (trading, coding, general)...'}
             disabled={isLoading}
             rows={1}
             className="flex-1 bg-transparent outline-none resize-none text-sm py-1.5 placeholder:text-gray-400 disabled:opacity-40 max-h-[150px]"

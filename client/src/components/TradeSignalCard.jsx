@@ -1,0 +1,324 @@
+import React from 'react';
+
+/**
+ * Parses raw text from TradeX AI to see if it represents an actionable trading signal.
+ * Returns an object with parsed fields or null if it's general conversational/chat text.
+ */
+export function parseTradeSignal(content) {
+  if (!content || typeof content !== 'string') return null;
+
+  // Check for presence of signal keywords
+  const hasAction = /(?:ACTION|SIGNAL|BIAS)\s*:\s*(BUY|SELL|WAIT|LONG|SHORT)/i.test(content) ||
+                    /#+\s*.*(BUY|SELL|WAIT|LONG|SHORT)/i.test(content) ||
+                    /\b(BUY\s*\(LONG\)|SELL\s*\(SHORT\)|WAIT\s*\(NO\s*TRADE\))\b/i.test(content);
+
+  const hasTradeLevels = /(?:ENTRY|STOP\s*LOSS|TAKE\s*PROFIT|RISK\s*\/\s*REWARD)/i.test(content);
+
+  if (!hasAction && !hasTradeLevels) {
+    return null;
+  }
+
+  // 1. Determine Action: BUY / SELL / WAIT
+  let action = 'WAIT';
+  let isBuy = false;
+  let isSell = false;
+  let isWait = true;
+
+  if (/(?:BUY|LONG)/i.test(content) && !/(?:SELL|SHORT)/i.test(content.match(/ACTION.*|SIGNAL.*|BIAS.*/i)?.[0] || '')) {
+    action = 'BUY (LONG)';
+    isBuy = true;
+    isWait = false;
+  } else if (/(?:SELL|SHORT)/i.test(content)) {
+    action = 'SELL (SHORT)';
+    isSell = true;
+    isWait = false;
+  } else if (/WAIT/i.test(content)) {
+    action = 'WAIT (NO TRADE)';
+    isWait = true;
+  }
+
+  // Double check explicit ACTION line
+  const actionLineMatch = content.match(/(?:ACTION|SIGNAL|BIAS)\s*:\s*([^\n\r]+)/i);
+  if (actionLineMatch) {
+    const rawAct = actionLineMatch[1].toUpperCase();
+    if (rawAct.includes('BUY') || rawAct.includes('LONG')) {
+      action = 'BUY (LONG)';
+      isBuy = true;
+      isSell = false;
+      isWait = false;
+    } else if (rawAct.includes('SELL') || rawAct.includes('SHORT')) {
+      action = 'SELL (SHORT)';
+      isSell = true;
+      isBuy = false;
+      isWait = false;
+    } else if (rawAct.includes('WAIT')) {
+      action = 'WAIT (NO TRADE)';
+      isWait = true;
+      isBuy = false;
+      isSell = false;
+    }
+  }
+
+  // 2. Confidence
+  const confMatch = content.match(/CONFIDENCE\s*:\s*([0-9]{1,3}%?)/i);
+  const confidence = confMatch ? confMatch[1] : null;
+
+  // 3. Market & Timeframe
+  const marketMatch = content.match(/MARKET\s*:\s*([^\n\r*]+)/i);
+  const market = marketMatch ? marketMatch[1].trim() : null;
+
+  const tfMatch = content.match(/TIMEFRAME\s*:\s*([^\n\r*]+)/i);
+  const timeframe = tfMatch ? tfMatch[1].trim() : null;
+
+  // 4. Entry Zone
+  const entryMatch = content.match(/ENTRY(?:\s*ZONE)?\s*:\s*([^\n\r*]+)/i);
+  const entry = entryMatch ? entryMatch[1].trim() : null;
+
+  // 5. Stop Loss
+  const slMatch = content.match(/STOP\s*LOSS\s*:\s*([^\n\r*]+)/i);
+  const stopLoss = slMatch ? slMatch[1].trim() : null;
+
+  // 6. Take Profit targets
+  const tp1Match = content.match(/TAKE\s*PROFIT\s*1\s*:\s*([^\n\r*]+)/i);
+  const tp2Match = content.match(/TAKE\s*PROFIT\s*2\s*:\s*([^\n\r*]+)/i);
+  const tp3Match = content.match(/TAKE\s*PROFIT\s*3\s*:\s*([^\n\r*]+)/i);
+
+  const takeProfits = [];
+  if (tp1Match) takeProfits.push({ label: 'TP 1', value: tp1Match[1].trim() });
+  if (tp2Match) takeProfits.push({ label: 'TP 2', value: tp2Match[1].trim() });
+  if (tp3Match) takeProfits.push({ label: 'TP 3', value: tp3Match[1].trim() });
+
+  // 7. Risk / Reward
+  const rrMatch = content.match(/RISK\s*\/?\s*REWARD\s*:\s*([^\n\r*]+)/i);
+  const riskReward = rrMatch ? rrMatch[1].trim() : null;
+
+  // 8. Quick Setup Bullets
+  const bullets = [];
+  const lines = content.split('\n');
+  let inBullets = false;
+  for (const line of lines) {
+    if (/QUICK\s*SETUP|ANALYSIS|REASON/i.test(line)) {
+      inBullets = true;
+      continue;
+    }
+    if (inBullets && /INVALIDATION|IMPORTANT|WATCH\s*TRIGGER/i.test(line)) {
+      inBullets = false;
+    }
+    if (inBullets && (line.trim().startsWith('•') || line.trim().startsWith('-') || line.trim().startsWith('*'))) {
+      const cleaned = line.replace(/^[•\-*]\s*/, '').trim();
+      if (cleaned) bullets.push(cleaned);
+    }
+  }
+
+  // 9. Invalidation
+  const invalMatch = content.match(/INVALIDATION\s*:\s*([^\n\r]+)/i);
+  const invalidation = invalMatch ? invalMatch[1].trim() : null;
+
+  // 10. Wait Triggers
+  const watchBuyMatch = content.match(/WATCH\s*TRIGGER\s*BUY\s*:\s*([^\n\r]+)/i);
+  const watchSellMatch = content.match(/WATCH\s*TRIGGER\s*SELL\s*:\s*([^\n\r]+)/i);
+  const watchBuy = watchBuyMatch ? watchBuyMatch[1].trim() : null;
+  const watchSell = watchSellMatch ? watchSellMatch[1].trim() : null;
+
+  return {
+    isBuy,
+    isSell,
+    isWait,
+    action,
+    confidence,
+    market,
+    timeframe,
+    entry,
+    stopLoss,
+    takeProfits,
+    riskReward,
+    bullets: bullets.slice(0, 4),
+    invalidation,
+    watchBuy,
+    watchSell
+  };
+}
+
+export default function TradeSignalCard({ data }) {
+  if (!data) return null;
+
+  const {
+    isBuy,
+    isSell,
+    isWait,
+    action,
+    confidence,
+    market,
+    timeframe,
+    entry,
+    stopLoss,
+    takeProfits,
+    riskReward,
+    bullets,
+    invalidation,
+    watchBuy,
+    watchSell
+  } = data;
+
+  return (
+    <div className="w-full my-2 rounded-2xl overflow-hidden border border-gray-200/80 shadow-md bg-white">
+      {/* 1. TOP HEADER BANNER WITH GRADIENT */}
+      <div className={`px-5 py-4 text-white relative overflow-hidden ${
+        isBuy
+          ? 'bg-gradient-to-r from-emerald-600 via-green-600 to-teal-700 shadow-emerald-500/20'
+          : isSell
+          ? 'bg-gradient-to-r from-rose-600 via-red-600 to-amber-700 shadow-rose-500/20'
+          : 'bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 shadow-amber-500/20'
+      }`}>
+        {/* Background glow circle */}
+        <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/10 blur-xl pointer-events-none" />
+
+        <div className="flex flex-wrap items-center justify-between gap-3 relative z-10">
+          <div className="flex items-center gap-3">
+            <span className="flex h-3 w-3 relative">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                isBuy ? 'bg-emerald-200' : isSell ? 'bg-rose-200' : 'bg-amber-200'
+              }`}></span>
+              <span className={`relative inline-flex rounded-full h-3 w-3 ${
+                isBuy ? 'bg-white' : isSell ? 'bg-white' : 'bg-white'
+              }`}></span>
+            </span>
+
+            <div>
+              <div className="text-[11px] font-semibold tracking-wider uppercase opacity-85">
+                AI Trading Signal
+              </div>
+              <div className="text-2xl font-black tracking-tight drop-shadow-sm flex items-center gap-2">
+                {isBuy && '🟢'}
+                {isSell && '🔴'}
+                {isWait && '⏸️'}
+                <span>{action}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {confidence && (
+              <div className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold border border-white/30">
+                Confidence: {confidence}
+              </div>
+            )}
+            {market && market !== 'Unknown' && (
+              <div className="bg-black/30 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold border border-white/20">
+                {market}
+              </div>
+            )}
+            {timeframe && timeframe !== 'Not visible' && (
+              <div className="bg-black/30 backdrop-blur-md px-3 py-1 rounded-full text-xs font-medium border border-white/20">
+                {timeframe}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 2. CORE TRADE NUMBERS (GREEN & RED GRADIENTS) */}
+      <div className="p-4 sm:p-5 space-y-4 bg-slate-50/50">
+        {!isWait ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {/* ENTRY ZONE CARD */}
+            {entry && (
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col justify-between">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  <span>Entry Zone</span>
+                  <span className="text-slate-400">⚡</span>
+                </div>
+                <div className="text-lg font-black text-slate-900 tracking-tight">
+                  {entry}
+                </div>
+              </div>
+            )}
+
+            {/* STOP LOSS CARD — RED GRADIENT */}
+            {stopLoss && (
+              <div className="p-3.5 rounded-xl border-2 border-red-500/30 bg-gradient-to-br from-rose-50 via-red-50 to-rose-100 shadow-sm shadow-red-100 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-xs font-bold text-red-700 uppercase tracking-wider mb-1">
+                  <span>Stop Loss (Risk)</span>
+                  <span className="text-red-500 font-bold">🛡️</span>
+                </div>
+                <div className="text-lg font-black text-red-900 tracking-tight">
+                  {stopLoss}
+                </div>
+              </div>
+            )}
+
+            {/* RISK / REWARD */}
+            {riskReward && (
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col justify-between">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  <span>Risk / Reward</span>
+                  <span className="text-slate-400">⚖️</span>
+                </div>
+                <div className="text-lg font-black text-slate-900 tracking-tight">
+                  {riskReward}
+                </div>
+              </div>
+            )}
+
+            {/* TAKE PROFIT TARGETS — GREEN GRADIENTS */}
+            {takeProfits.map((tp, idx) => (
+              <div
+                key={idx}
+                className="p-3.5 rounded-xl border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-50 via-green-50 to-teal-100 shadow-sm shadow-emerald-100 flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">
+                  <span>Take Profit {idx + 1}</span>
+                  <span className="text-emerald-600 font-bold">🎯</span>
+                </div>
+                <div className="text-lg font-black text-emerald-900 tracking-tight">
+                  {tp.value}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* WAIT MODE CARDS */
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {watchBuy && (
+              <div className="p-3.5 rounded-xl border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-sm">
+                <div className="text-xs font-bold text-emerald-800 uppercase mb-1">Watch Trigger for Buy (Long)</div>
+                <div className="text-base font-bold text-emerald-900">{watchBuy}</div>
+              </div>
+            )}
+            {watchSell && (
+              <div className="p-3.5 rounded-xl border-2 border-rose-500/30 bg-gradient-to-br from-rose-50 to-red-50 shadow-sm">
+                <div className="text-xs font-bold text-red-800 uppercase mb-1">Watch Trigger for Sell (Short)</div>
+                <div className="text-base font-bold text-red-900">{watchSell}</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 3. QUICK SETUP BULLETS (3-4 concise points) */}
+        {bullets && bullets.length > 0 && (
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+              <span>⚡</span> Quick Technical Setup
+            </div>
+            <ul className="space-y-1.5 text-sm text-slate-800">
+              {bullets.map((b, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <span className="text-emerald-600 font-bold mt-0.5">•</span>
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* 4. INVALIDATION LEVEL */}
+        {invalidation && (
+          <div className="px-3.5 py-2.5 rounded-lg bg-amber-50 border border-amber-200/80 text-xs text-amber-900 flex items-center gap-2">
+            <span className="font-bold text-amber-700">⚠️ Invalidation:</span>
+            <span>{invalidation}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
