@@ -30,3 +30,4 @@ uploads/
 coverage/
 
 .vercel
+server/data/

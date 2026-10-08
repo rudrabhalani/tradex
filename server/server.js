@@ -8,6 +8,7 @@ const path = require('path');
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const analysisRoutes = require('./routes/analysisRoutes');
+const ownerRoutes = require('./routes/ownerRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -26,12 +27,13 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/analysis', analysisRoutes);
+app.use('/api/owner', ownerRoutes);
 
 // Global Error Handler
 app.use(errorHandler);
 
-// Listen only when not deployed in serverless environment (e.g. Vercel)
-if (!process.env.VERCEL) {
+// Listen only when run directly and not in serverless environment (e.g. Vercel)
+if (!process.env.VERCEL && require.main === module) {
     const PORT = process.env.PORT || 3001;
     app.listen(PORT, () => {
         console.log(`Server is running on port ${PORT}`);

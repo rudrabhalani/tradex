@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { analyzeChart, chatFollowUp } from '../services/api';
 import voiceService from '../services/voiceService';
 
-export default function InputArea({ conversationHistory, isLoading, setIsLoading, addMessage }) {
+export default function InputArea({ conversationHistory, isLoading, setIsLoading, addMessage, user }) {
   const [text, setText] = useState('');
   const [file, setFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -101,9 +101,9 @@ export default function InputArea({ conversationHistory, isLoading, setIsLoading
     try {
       let result;
       if (currentFile) {
-        result = await analyzeChart(currentFile, currentText, conversationHistory());
+        result = await analyzeChart(currentFile, currentText, conversationHistory(), user);
       } else {
-        result = await chatFollowUp(currentText, conversationHistory());
+        result = await chatFollowUp(currentText, conversationHistory(), user);
       }
       addMessage('assistant', result.analysis);
     } catch (err) {

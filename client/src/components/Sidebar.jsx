@@ -9,7 +9,10 @@ export default function Sidebar({
   isOpen,
   onClose,
   theme,
-  onToggleTheme
+  onToggleTheme,
+  user,
+  onOpenLogin,
+  onOpenOwnerPortal
 }) {
   return (
     <>
@@ -92,26 +95,67 @@ export default function Sidebar({
           ))}
         </div>
 
-        {/* Sidebar Footer with Theme Toggle & Founder Credits */}
-        <div className="p-3 border-t border-gray-200 dark:border-zinc-800/80 space-y-2.5 bg-gray-50/50 dark:bg-[#111114]">
+        {/* Sidebar Footer with User Profile, Theme Toggle, Owner Portal, & Founder Credits */}
+        <div className="p-3 border-t border-gray-200 dark:border-zinc-800/80 space-y-2 bg-gray-50/50 dark:bg-[#111114]">
+          
+          {/* User Account Bar */}
+          <div className="p-2 rounded-xl bg-white dark:bg-[#18181c] border border-gray-200 dark:border-zinc-800 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <div className="w-6 h-6 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-[10px] shrink-0">
+                {user?.name ? user.name.charAt(0).toUpperCase() : '👤'}
+              </div>
+              <div className="truncate">
+                <div className="font-bold text-gray-900 dark:text-white truncate text-[11px]">
+                  {user?.name || 'Guest Trader'}
+                </div>
+                <div className="text-[9px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  Active Trader 🟢
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={onOpenLogin}
+              className="text-[10px] font-semibold text-gray-500 hover:text-black dark:text-zinc-400 dark:hover:text-white px-1.5 py-0.5 rounded border border-gray-200 dark:border-zinc-700"
+              title="Change Account / Sign In"
+            >
+              Switch
+            </button>
+          </div>
+
           {/* Theme Toggle Button */}
           {onToggleTheme && (
             <button
               onClick={onToggleTheme}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181c] hover:bg-gray-100 dark:hover:bg-zinc-800 text-xs font-semibold text-gray-700 dark:text-zinc-300 transition-colors shadow-sm"
+              className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-[#18181c] hover:bg-gray-100 dark:hover:bg-zinc-800 text-xs font-semibold text-gray-700 dark:text-zinc-300 transition-colors shadow-sm"
             >
-              <span className="flex items-center gap-2">
+              <span className="flex items-center gap-2 text-[11px]">
                 <span>{theme === 'dark' ? '🌙' : '☀️'}</span>
                 <span>{theme === 'dark' ? 'Dark Theme' : 'Light Theme'}</span>
               </span>
-              <span className="text-[10px] text-gray-400 dark:text-zinc-500 uppercase">Switch</span>
+              <span className="text-[9px] text-gray-400 dark:text-zinc-500 uppercase">Toggle</span>
+            </button>
+          )}
+
+          {/* Owner Portal Link */}
+          {onOpenOwnerPortal && (
+            <button
+              onClick={onOpenOwnerPortal}
+              className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-xs font-bold text-amber-500 dark:text-amber-400 transition-colors shadow-sm"
+              title="Access Owner Dashboard"
+            >
+              <span className="flex items-center gap-1.5 text-[11px]">
+                <span>👑</span>
+                <span>Owner Portal</span>
+              </span>
+              <span className="text-[10px] font-bold">Manage →</span>
             </button>
           )}
 
           {/* Founder Acknowledgment */}
-          <div className="text-center pt-1">
+          <div className="text-center pt-1 border-t border-gray-200/50 dark:border-zinc-800/50">
             <p className="text-[11px] font-extrabold text-gray-900 dark:text-white tracking-wide">
-              TradeX AI v1.5
+              TradeX AI
             </p>
             <p className="text-[10px] text-gray-500 dark:text-zinc-400 mt-0.5">
               Founded & Owned by{' '}

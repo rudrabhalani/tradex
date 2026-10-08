@@ -2,15 +2,45 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import InputArea from './components/InputArea';
+import LoginModal from './components/LoginModal';
+import OwnerDashboard from './components/OwnerDashboard';
+import { trackUser } from './services/api';
 
 const STORAGE_KEY_CONVS = 'tradex_conversations_v3';
 const STORAGE_KEY_ACTIVE = 'tradex_active_id_v3';
 const STORAGE_KEY_THEME = 'tradex_theme';
+const STORAGE_KEY_USER = 'tradex_user';
 
 function App() {
+  // Routing view state: 'client' | 'owner'
+  const [currentView, setCurrentView] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const p = window.location.pathname.toLowerCase();
+      const s = window.location.search.toLowerCase();
+      if (p === '/owner' || p === '/admin' || s.includes('view=owner')) {
+        return 'owner';
+      }
+    }
+    return 'client';
+  });
+
   // Theme state: dark by default (preferred by traders)
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem(STORAGE_KEY_THEME) || 'dark';
+  });
+
+  // User Profile state
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_USER);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
+
+  // Show login modal when client opens without an existing session
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(() => {
+    return !localStorage.getItem(STORAGE_KEY_USER);
   });
 
   // Conversation history persistence in localStorage
@@ -43,6 +73,20 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const nextConvId = useRef(Date.now());
 
+  // Listen to browser navigation back / forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      const p = window.location.pathname.toLowerCase();
+      if (p === '/owner' || p === '/admin') {
+        setCurrentView('owner');
+      } else {
+        setCurrentView('client');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   // Apply dark class to document root
   useEffect(() => {
     if (theme === 'dark') {
@@ -66,6 +110,20 @@ function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_ACTIVE, String(activeConversationId));
   }, [activeConversationId]);
+
+  // Track active user in backend analytics
+  useEffect(() => {
+    if (user) {
+      trackUser(user);
+    }
+  }, [user]);
+
+  const handleUserLogin = (newUser) => {
+    setUser(newUser);
+    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(newUser));
+    setIsLoginModalOpen(false);
+    trackUser(newUser);
+  };
 
   const toggleTheme = () => {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
@@ -119,8 +177,27 @@ function App() {
     }
   }, [activeConversationId]);
 
+  // If viewing Owner Dashboard
+  if (currentView === 'owner') {
+    return (
+      <OwnerDashboard
+        onBackToClient={() => {
+          setCurrentView('client');
+          window.history.pushState({}, '', '/');
+        }}
+      />
+    );
+  }
+
   return (
     <div className="flex h-screen bg-white dark:bg-[#0c0c0e] text-gray-900 dark:text-zinc-100 transition-colors overflow-hidden">
+      {/* Client Login Modal prompt */}
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLogin={handleUserLogin}
+      />
+
       {/* Sidebar */}
       <Sidebar
         conversations={conversations}
@@ -132,18 +209,24 @@ function App() {
         onClose={() => setSidebarOpen(false)}
         theme={theme}
         onToggleTheme={toggleTheme}
+        user={user}
+        onOpenLogin={() => setIsLoginModalOpen(true)}
+        onOpenOwnerPortal={() => {
+          setCurrentView('owner');
+          window.history.pushState({}, '', '/owner');
+        }}
       />
 
-      {/* Main Content Area */}
+      {/* Main Chat View Area */}
       <div className="flex-1 flex flex-col min-w-0 h-full">
-        {/* Top Header */}
-        <header className="flex items-center justify-between h-14 px-4 sm:px-6 border-b border-gray-200 dark:border-zinc-800/80 bg-white dark:bg-[#121215] shrink-0 transition-colors">
+        {/* Top Header Bar */}
+        <header className="h-14 border-b border-gray-200 dark:border-zinc-800/80 px-4 flex items-center justify-between bg-white/80 dark:bg-[#0c0c0e]/80 backdrop-blur-sm z-10 shrink-0">
           <div className="flex items-center gap-3">
-            {/* Mobile menu button */}
+            {/* Mobile Hamburger toggle */}
             <button
               onClick={() => setSidebarOpen(true)}
-              className="md:hidden p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-700 dark:text-zinc-300 transition-colors"
-              title="Open Sidebar"
+              className="md:hidden p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-zinc-800 text-gray-600 dark:text-zinc-300 transition-colors"
+              title="Open menu"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -162,7 +245,7 @@ function App() {
             </div>
           </div>
 
-          {/* Right Header Controls (New Chat + Theme Toggle) */}
+          {/* Right Header Controls (New Chat + Theme Toggle + Owner Portal Link) */}
           <div className="flex items-center gap-2">
             <button
               onClick={handleNewConversation}
@@ -183,6 +266,19 @@ function App() {
             >
               {theme === 'dark' ? '☀️' : '🌙'}
             </button>
+
+            {/* Direct Owner Portal Access */}
+            <button
+              onClick={() => {
+                setCurrentView('owner');
+                window.history.pushState({}, '', '/owner');
+              }}
+              className="px-2.5 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-[11px] font-bold text-amber-600 dark:text-amber-400 transition-colors hidden sm:flex items-center gap-1"
+              title="Owner Command Center"
+            >
+              <span>👑</span>
+              <span>Owner</span>
+            </button>
           </div>
         </header>
 
@@ -199,6 +295,7 @@ function App() {
           isLoading={isLoading}
           setIsLoading={setIsLoading}
           addMessage={addMessage}
+          user={user}
         />
 
         {/* Legal & Financial Disclaimer Bar */}
