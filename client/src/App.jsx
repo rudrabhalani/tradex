@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import InputArea from './components/InputArea';
-import { chatFollowUp } from './services/api';
 
 const STORAGE_KEY_CONVS = 'tradex_conversations_v3';
 const STORAGE_KEY_ACTIVE = 'tradex_active_id_v3';
@@ -120,21 +119,6 @@ function App() {
     }
   }, [activeConversationId]);
 
-  // Handler for quick prompt suggestion buttons
-  const handleQuickPrompt = async (promptText) => {
-    if (isLoading) return;
-    addMessage('user', promptText, null);
-    setIsLoading(true);
-    try {
-      const res = await chatFollowUp(promptText, getConversationHistory());
-      addMessage('assistant', res.analysis);
-    } catch (err) {
-      addMessage('assistant', `⚠️ ${err.message || 'Something went wrong. Please try again.'}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="flex h-screen bg-white dark:bg-[#0c0c0e] text-gray-900 dark:text-zinc-100 transition-colors overflow-hidden">
       {/* Sidebar */}
@@ -206,7 +190,6 @@ function App() {
         <ChatArea
           messages={activeConversation.messages}
           isLoading={isLoading}
-          onQuickPrompt={handleQuickPrompt}
         />
 
         {/* Input Area */}

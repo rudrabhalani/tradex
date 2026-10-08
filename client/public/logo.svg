@@ -1,61 +1,73 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <!-- Background Dark Gradient -->
+    <!-- Premium Dark Background Gradient -->
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#000000"/>
-      <stop offset="50%" stop-color="#0a0a0c"/>
-      <stop offset="100%" stop-color="#141416"/>
-    </linearGradient>
-    
-    <!-- Outer Glow -->
-    <filter id="whiteGlow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="12" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
-    </filter>
-
-    <linearGradient id="whiteGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FFFFFF"/>
-      <stop offset="100%" stop-color="#E2E8F0"/>
+      <stop offset="50%" stop-color="#08080a"/>
+      <stop offset="100%" stop-color="#121216"/>
     </linearGradient>
 
-    <radialGradient id="innerShine" cx="50%" cy="30%" r="70%">
-      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.08"/>
+    <!-- Subtle Radial Shine -->
+    <radialGradient id="centerShine" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.06"/>
       <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
     </radialGradient>
+
+    <!-- Soft Luminous Glow for Pure White Line -->
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
 
-  <!-- Deep Black Squircle Background -->
+  <!-- Deep Black Squircle Frame (4K Luxury Container) -->
   <rect x="32" y="32" width="960" height="960" rx="240" fill="url(#bgGrad)" stroke="#27272a" stroke-width="8"/>
-  <rect x="32" y="32" width="960" height="960" rx="240" fill="url(#innerShine)"/>
+  <rect x="32" y="32" width="960" height="960" rx="240" fill="url(#centerShine)"/>
 
-  <!-- Subtle Precision Grid Crosses -->
-  <circle cx="256" cy="256" r="3" fill="#3f3f46" opacity="0.4"/>
-  <circle cx="768" cy="256" r="3" fill="#3f3f46" opacity="0.4"/>
-  <circle cx="256" cy="768" r="3" fill="#3f3f46" opacity="0.4"/>
-  <circle cx="768" cy="768" r="3" fill="#3f3f46" opacity="0.4"/>
+  <!-- Ambient Glow Layer -->
+  <g filter="url(#softGlow)" opacity="0.35">
+    <polyline
+      points="200,668 356,460 512,564 668,252 824,356"
+      stroke="#FFFFFF"
+      stroke-width="64"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      fill="none"
+    />
+    <line
+      x1="200" y1="772"
+      x2="824" y2="772"
+      stroke="#FFFFFF"
+      stroke-width="52"
+      stroke-linecap="round"
+    />
+  </g>
 
-  <!-- High-Precision Center White Monogram & Candlesticks -->
-  <g filter="url(#whiteGlow)">
-    <!-- Bullish Candlestick 1 (Left Support) -->
-    <line x1="288" y1="560" x2="288" y2="760" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round"/>
-    <rect x="264" y="610" width="48" height="100" rx="12" fill="#FFFFFF"/>
+  <!-- Crisp Pure White Middle Graphic (Old Iconic Trading Chart, 4K High Precision) -->
+  <g>
+    <!-- Chart Polyline: (4,24) -> (10,16) -> (16,20) -> (22,8) -> (28,12) -->
+    <polyline
+      points="200,668 356,460 512,564 668,252 824,356"
+      stroke="#FFFFFF"
+      stroke-width="64"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      fill="none"
+    />
 
-    <!-- Bullish Candlestick 2 (Center Breakout / Stem of T) -->
-    <line x1="512" y1="340" x2="512" y2="760" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round"/>
-    <rect x="484" y="420" width="56" height="230" rx="14" fill="#FFFFFF"/>
+    <!-- Bottom Baseline: (4,28) to (28,28) -->
+    <line
+      x1="200" y1="772"
+      x2="824" y2="772"
+      stroke="#FFFFFF"
+      stroke-width="52"
+      stroke-linecap="round"
+    />
 
-    <!-- Top Horizontal Crossbar of "T" with Precision Angles -->
-    <path d="M 270 330 L 754 330 C 768 330 776 342 770 354 L 728 410 C 722 418 712 422 702 422 L 322 422 C 312 422 302 418 296 410 L 254 354 C 248 342 256 330 270 330 Z" fill="url(#whiteGrad)"/>
-
-    <!-- Bullish Candlestick 3 (Right Apex) -->
-    <line x1="736" y1="210" x2="736" y2="520" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round"/>
-    <rect x="712" y="270" width="48" height="150" rx="12" fill="#FFFFFF"/>
-
-    <!-- Exponential Trajectory Trend Line -->
-    <path d="M 220 720 Q 460 690 640 450 T 800 240" fill="none" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
-    
-    <!-- Arrowhead at Apex -->
-    <polygon points="800,240 730,240 760,285" fill="#FFFFFF"/>
-    <circle cx="800" cy="240" r="16" fill="#FFFFFF"/>
+    <!-- Peak Apex Precision Accent (Point 22,8) -->
+    <circle cx="668" cy="252" r="18" fill="#FFFFFF"/>
   </g>
 </svg>

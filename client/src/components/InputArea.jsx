@@ -216,8 +216,8 @@ export default function InputArea({ conversationHistory, isLoading, setIsLoading
               isListening
                 ? 'Listening to your voice...'
                 : file
-                ? 'Add instructions (e.g. timeframe, key levels)...'
-                : 'Upload a chart or ask any question (trading, code, general)...'
+                ? 'Add instructions or press Send to analyze...'
+                : 'Upload a chart or ask anything...'
             }
             disabled={isLoading}
             rows={1}
