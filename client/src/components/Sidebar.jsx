@@ -59,8 +59,9 @@ export default function Sidebar({ conversations, activeId, onSelect, onNew, onDe
         </div>
 
         {/* Bottom */}
-        <div className="p-3 border-t border-gray-200">
-          <p className="text-xs text-gray-400 text-center">TradeX v1.0</p>
+        <div className="p-3 border-t border-gray-200 text-center">
+          <p className="text-xs font-semibold text-gray-800">TradeX AI</p>
+          <p className="text-[11px] text-gray-500 mt-0.5">Founded by <span className="font-medium text-gray-700">Rudra Bhalani</span></p>
         </div>
       </aside>
     </>
